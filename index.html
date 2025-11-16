@@ -12,22 +12,26 @@
       --bg:#f0f0f0;
       --card:#ffffff;
 
-      /* Couleurs spécifiques pause */
-      --pause-bg:#fdf3e6;    /* fond léger, chaud mais doux */
+      /* Couleurs spécifiques pour la pause */
+      --pause-bg:#fdf3e6;    /* fond doux, chaud */
       --pause-card:#ffe1c2;  /* carte légèrement orangée pastel */
     }
+
     html,body{
       height:100%;
       margin:0;
       background:var(--bg);
       font-family:Arial,Helvetica,sans-serif;
     }
+
+    /* Mode pause : couleur différente, mais station inchangée */
     body.pause-mode{
       background:var(--pause-bg);
     }
     body.pause-mode .card{
       background:var(--pause-card);
     }
+
     .wrap{
       min-height:100%;
       display:flex;
@@ -36,6 +40,7 @@
       justify-content:center;
       padding:1rem;
     }
+
     .card{
       background:var(--card);
       border-radius:12px;
@@ -45,24 +50,29 @@
       width:100%;
       text-align:center;
     }
+
     h1{
       margin:0 0 0.5rem 0;
       font-size:clamp(1.25rem,3.5vw,2rem);
     }
+
     #timer{
       font-size:clamp(3rem,9vw,6rem);
       margin:0.25rem 0 0.75rem 0;
     }
+
     #phase{
       font-size:clamp(1rem,2.6vw,1.25rem);
       color:#333;
       margin-bottom:0.5rem;
     }
+
     #cycles,#sessionNumber{
       font-size:clamp(0.9rem,2.2vw,1rem);
       color:#444;
       margin:0.25rem 0;
     }
+
     .controls{
       display:flex;
       gap:0.5rem;
@@ -70,14 +80,17 @@
       justify-content:center;
       margin-top:1rem;
     }
+
     .controls-main{
       margin-top:1.5rem;
     }
+
     .controls-secondary{
       margin-top:2rem;
       border-top:1px solid #ddd;
       padding-top:1rem;
     }
+
     button{
       padding:0.9rem 1.2rem;
       border-radius:10px;
@@ -89,22 +102,51 @@
       width:160px;
       max-width:45vw;
     }
+
     button:active{
       transform:scale(0.98);
       background:var(--primary-dark);
     }
+
     .secondary{
       background:#6c757d;
     }
+
     footer{
       margin-top:1rem;
       font-size:0.85rem;
       color:#666;
       word-break:break-all;
     }
+
     @media (max-width:420px){
       button{width:100%}
       .card{padding:1rem}
+    }
+
+    /* --- MODE PLEIN ÉCRAN --- */
+
+    /* Cacher toutes les commandes sauf le bouton plein écran */
+    .fullscreen-active .controls-main button:not(#fullscreen),
+    .fullscreen-active .controls-secondary {
+      display: none !important;
+    }
+
+    /* Bouton plein écran réduit et en bas de la page en mode plein écran */
+    #fullscreen.fullscreen-button-small {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.8rem;
+      padding: 0.4rem 0.8rem;
+      width: auto;
+      opacity: 0.5;
+      z-index: 9999;
+    }
+
+    #fullscreen.fullscreen-button-small:hover {
+      opacity: 1;
     }
   </style>
 </head>
@@ -118,13 +160,13 @@
       <div id="cycles">Cycle : 0 / 5</div>
       <div id="sessionNumber">Station : -</div>
 
-      <!-- Bouton principal, bien séparé -->
+      <!-- Boutons principaux (en haut) -->
       <div class="controls controls-main">
         <button id="start">Démarrer</button>
         <button id="fullscreen" class="secondary">Plein écran</button>
       </div>
 
-      <!-- Boutons sensibles plus bas, séparés -->
+      <!-- Boutons sensibles (plus bas) -->
       <div class="controls controls-secondary">
         <button id="pause" class="secondary">Pause</button>
         <button id="reset" class="secondary">Réinitialiser</button>
@@ -360,7 +402,7 @@
       }
     );
 
-    // --- Bouton Démarrer avec confirmation ---
+    // --- Démarrer avec confirmation ---
     startBtn.addEventListener("click", async () => {
       const ok = confirm("Confirmer le démarrage ou la reprise du chronomètre ?");
       if (!ok) return;
@@ -435,7 +477,7 @@
       }
     });
 
-    // --- Bouton Pause/Reprendre avec confirmation ---
+    // --- Pause/Reprendre avec confirmation ---
     pauseBtn.addEventListener("click", async () => {
       const label = remoteState && remoteState.isPaused ? "reprendre" : "mettre en pause";
       const ok = confirm("Voulez-vous vraiment " + label + " le chronomètre ?");
@@ -486,7 +528,7 @@
       }
     });
 
-    // --- Bouton Reset avec confirmation ---
+    // --- Reset avec confirmation ---
     resetBtn.addEventListener("click", async () => {
       const ok = confirm("Réinitialiser complètement la station et recommencer depuis le début ?");
       if (!ok) return;
@@ -512,10 +554,16 @@
 
     // --- Mode plein écran ---
     function updateFullscreenButtonLabel() {
-      if (document.fullscreenElement) {
+      const isFs = !!document.fullscreenElement;
+
+      if (isFs) {
         fullscreenBtn.textContent = "Quitter le plein écran";
+        fullscreenBtn.classList.add("fullscreen-button-small");
+        document.body.classList.add("fullscreen-active");
       } else {
         fullscreenBtn.textContent = "Plein écran";
+        fullscreenBtn.classList.remove("fullscreen-button-small");
+        document.body.classList.remove("fullscreen-active");
       }
     }
 
