@@ -12,9 +12,9 @@
       --bg:#f0f0f0;
       --card:#ffffff;
 
-      /* Couleurs spécifiques pour la pause */
-      --pause-bg:#fdf3e6;    /* fond doux, chaud */
-      --pause-card:#ffe1c2;  /* carte légèrement orangée pastel */
+      /* Couleurs de la pause */
+      --pause-bg:#fdf3e6;
+      --pause-card:#ffe1c2;
     }
 
     html,body{
@@ -24,7 +24,6 @@
       font-family:Arial,Helvetica,sans-serif;
     }
 
-    /* Mode pause : couleur différente, station inchangée */
     body.pause-mode{
       background:var(--pause-bg);
     }
@@ -124,465 +123,370 @@
       .card{padding:1rem}
     }
 
-    /* --- MODE PROJECTEUR / PLEIN ÉCRAN VISUEL --- */
-
-    /* Cacher toutes les commandes sauf le bouton plein écran */
+    /* MODE PROJECTEUR / PLEIN ÉCRAN */
     .fullscreen-active .controls-main button:not(#fullscreen),
     .fullscreen-active .controls-secondary {
       display: none !important;
     }
 
-    /* Bouton plein écran réduit et en bas de la page en mode projecteur */
-    #fullscreen.fullscreen-button-small {
-      position: fixed;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.8rem;
-      padding: 0.4rem 0.8rem;
-      width: auto;
-      opacity: 0.5;
-      z-index: 9999;
+    #fullscreen.fullscreen-button-small{
+      position:fixed;
+      bottom:10px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:0.8rem;
+      padding:0.4rem 0.8rem;
+      width:auto;
+      opacity:0.5;
+      z-index:9999;
     }
 
-    #fullscreen.fullscreen-button-small:hover {
-      opacity: 1;
+    #fullscreen.fullscreen-button-small:hover{
+      opacity:1;
     }
   </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Chronomètre ECOS</h1>
+<div class="wrap">
+  <div class="card">
+    <h1>Chronomètre ECOS</h1>
 
-      <div id="phase">Prêt</div>
-      <div id="timer">08:00</div>
-      <div id="cycles">Cycle : 0 / 5</div>
-      <div id="sessionNumber">Station : -</div>
+    <div id="phase">Prêt</div>
+    <div id="timer">08:00</div>
+    <div id="cycles">Cycle : 0 / 5</div>
+    <div id="sessionNumber">Station : -</div>
 
-      <!-- Boutons principaux (en haut) -->
-      <div class="controls controls-main">
-        <button id="start">Démarrer</button>
-        <button id="fullscreen" class="secondary">Plein écran</button>
-      </div>
-
-      <!-- Boutons sensibles (plus bas) -->
-      <div class="controls controls-secondary">
-        <button id="pause" class="secondary">Pause</button>
-        <button id="reset" class="secondary">Réinitialiser</button>
-      </div>
-
-      <audio id="beep" preload="auto">
-        <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
-      </audio>
-
-      <footer>
-        Session ID : <span id="sessionIdSpan">default</span>
-      </footer>
+    <div class="controls controls-main">
+      <button id="start">Démarrer</button>
+      <button id="fullscreen" class="secondary">Plein écran</button>
     </div>
+
+    <div class="controls controls-secondary">
+      <button id="pause" class="secondary">Pause</button>
+      <button id="reset" class="secondary">Réinitialiser</button>
+    </div>
+
+    <audio id="beep" preload="auto">
+      <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
+    </audio>
+
+    <footer>
+      Session ID : <span id="sessionIdSpan">default</span>
+    </footer>
   </div>
+</div>
 
-  <!-- Firebase compat SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
-  <script>
-    // --- CONFIG FIREBASE ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyAb0JrnpRAXYM6op6W7bmCwhBxScyOHYyM",
-      authDomain: "ecos-blancs.firebaseapp.com",
-      projectId: "ecos-blancs",
-      storageBucket: "ecos-blancs.firebasestorage.app",
-      messagingSenderId: "88962953870",
-      appId: "1:88962953870:web:c37b8c705c89ed68bd8fdf"
-    };
+<script>
+/* CONFIG */
+const firebaseConfig = {
+  apiKey: "AIzaSyAb0JrnpRAXYM6op6W7bmCwhBxScyOHYyM",
+  authDomain: "ecos-blancs.firebaseapp.com",
+  projectId: "ecos-blancs",
+  storageBucket: "ecos-blancs.firebasestorage.app",
+  messagingSenderId: "88962953870",
+  appId: "1:88962953870:web:c37b8c705c89ed68bd8fdf"
+};
 
-    const WORK_DURATION = 8 * 60;
-    const BREAK_DURATION = 2 * 60;
-    const TOTAL_WORK_CYCLES = 5;
+const WORK_DURATION = 8 * 60;
+const BREAK_DURATION = 2 * 60;
+const TOTAL_WORK_CYCLES = 5;
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-    function getSessionId() {
-      const p = new URLSearchParams(window.location.search);
-      return p.get("sid") || p.get("session") || "default";
+function getSessionId(){
+  const p = new URLSearchParams(window.location.search);
+  return p.get("sid") || p.get("session") || "default";
+}
+
+const sessionId = getSessionId();
+document.getElementById("sessionIdSpan").textContent = sessionId;
+
+const docRef = db.collection("sessions").doc(sessionId);
+
+/* Elements */
+const phaseEl = document.getElementById("phase");
+const timerEl = document.getElementById("timer");
+const cyclesEl = document.getElementById("cycles");
+const sessionNumberEl = document.getElementById("sessionNumber");
+const startBtn = document.getElementById("start");
+const pauseBtn = document.getElementById("pause");
+const resetBtn = document.getElementById("reset");
+const fullscreenBtn = document.getElementById("fullscreen");
+const beep = document.getElementById("beep");
+
+/* State */
+let remoteState = null;
+let lastPhaseName = null;
+let tickTimer = null;
+let isProjectorMode = false;
+
+/* Tools */
+const fmt = sec => {
+  if(sec<0) sec=0;
+  return String(Math.floor(sec/60)).padStart(2,"0")+":"+
+         String(sec%60).padStart(2,"0");
+};
+
+function computeTimeLeft(s){
+  if(!s || !s.isStarted) return WORK_DURATION;
+  if(s.isPaused) return s.pausedRemaining ?? WORK_DURATION;
+
+  const dur = s.phaseDuration || (s.phase==="work"?WORK_DURATION:BREAK_DURATION);
+  if(!s.phaseStart) return dur;
+
+  const elapsed = (Date.now() - s.phaseStart.toDate().getTime())/1000;
+  return Math.floor(dur - elapsed);
+}
+
+function updateUI(){
+  /* pause color */
+  if(remoteState?.phase === "break" && remoteState.isStarted && !remoteState.finished){
+    document.body.classList.add("pause-mode");
+  } else {
+    document.body.classList.remove("pause-mode");
+  }
+
+  if(!remoteState){
+    phaseEl.textContent = "Prêt";
+    timerEl.textContent = fmt(WORK_DURATION);
+    cyclesEl.textContent = "Cycle : 0 / 5";
+    sessionNumberEl.textContent = "Station : -";
+    return;
+  }
+
+  /* Not started yet */
+  if(!remoteState.isStarted){
+    phaseEl.textContent = "Prêt";
+    timerEl.textContent = "08:00";
+    cyclesEl.textContent = "Cycle : 0 / 5";
+    sessionNumberEl.textContent = "Station : -";
+    pauseBtn.textContent = "Pause";
+    return;
+  }
+
+  /* Running */
+  const tl = computeTimeLeft(remoteState);
+
+  if(remoteState.finished){
+    phaseEl.textContent = "Terminé ! 🎉";
+    timerEl.textContent = "00:00";
+  } else {
+    phaseEl.textContent =
+      (remoteState.phase==="work"
+        ?"Travail (8 min)"
+        :"Pause (2 min)")
+      + (remoteState.isPaused?" (en pause)":"");
+    timerEl.textContent = fmt(tl);
+  }
+
+  cyclesEl.textContent = `Cycle : ${remoteState.cyclesDone || 0} / 5`;
+
+  if(remoteState.phase==="work"){
+    sessionNumberEl.textContent =
+      `Station : ${remoteState.workSessionNumber||1} / 5`;
+  } else if(remoteState.phase==="break"){
+    sessionNumberEl.textContent =
+      `Pause : ${remoteState.breakSessionNumber||1} / 4`;
+  } else {
+    sessionNumberEl.textContent="Station : -";
+  }
+
+  pauseBtn.textContent = remoteState.isPaused ? "Reprendre" : "Pause";
+}
+
+function maybeBeep(phase){
+  if(lastPhaseName!==null && lastPhaseName!==phase){
+    beep.currentTime=0;
+    beep.play().catch(()=>{});
+  }
+  lastPhaseName=phase;
+}
+
+function startLocalTicker(){
+  if(tickTimer) return;
+  tickTimer = setInterval(()=>{
+    if(!remoteState) return;
+    updateUI();
+    if(remoteState.isStarted && !remoteState.isPaused && !remoteState.finished){
+      const tl = computeTimeLeft(remoteState);
+      if(tl<=0) advancePhase();
     }
+  },1000);
+}
 
-    const sessionId = getSessionId();
-    document.getElementById("sessionIdSpan").textContent = sessionId;
-    const docRef = db.collection("sessions").doc(sessionId);
+/* Phase transitions */
+async function advancePhase(){
+  await db.runTransaction(async tx=>{
+    const snap = await tx.get(docRef);
+    if(!snap.exists) return;
+    const s = snap.data();
 
-    const phaseEl = document.getElementById("phase");
-    const timerEl = document.getElementById("timer");
-    const cyclesEl = document.getElementById("cycles");
-    const sessionNumberEl = document.getElementById("sessionNumber");
-    const startBtn = document.getElementById("start");
-    const pauseBtn = document.getElementById("pause");
-    const resetBtn = document.getElementById("reset");
-    const fullscreenBtn = document.getElementById("fullscreen");
-    const beep = document.getElementById("beep");
+    if(!s.isStarted || s.isPaused || s.finished) return;
 
-    let remoteState = null;
-    let lastPhaseName = null;
-    let tickTimer = null;
-    let isProjectorMode = false; // notre "mode plein écran visuel"
+    const dur = s.phaseDuration || (s.phase==="work"?WORK_DURATION:BREAK_DURATION);
+    const elapsed = (firebase.firestore.Timestamp.now().seconds - s.phaseStart.seconds);
 
-    function formatTime(seconds) {
-      if (seconds < 0) seconds = 0;
-      const m = String(Math.floor(seconds / 60)).padStart(2, "0");
-      const s = String(Math.floor(seconds % 60)).padStart(2, "0");
-      return m + ":" + s;
-    }
+    if(elapsed < dur) return;
 
-    function computeTimeLeft(state) {
-      if (!state) return WORK_DURATION;
+    const next = {...s};
 
-      if (state.isPaused && typeof state.pausedRemaining === "number") {
-        return state.pausedRemaining;
-      }
+    if(s.phase==="work"){
+      next.cyclesDone = (s.cyclesDone||0)+1;
+      next.workSessionNumber = (s.workSessionNumber||1)+1;
 
-      const phaseDuration =
-        state.phaseDuration ||
-        (state.phase === "work" ? WORK_DURATION : BREAK_DURATION);
-
-      if (!state.phaseStart) return phaseDuration;
-
-      const startMs = state.phaseStart.toDate().getTime();
-      const nowMs = Date.now();
-      const elapsed = Math.floor((nowMs - startMs) / 1000);
-      return phaseDuration - elapsed;
-    }
-
-    function updateUI() {
-      // Couleur pause vs station
-      if (!remoteState || remoteState.phase === "work" || remoteState.phase === "finished") {
-        document.body.classList.remove("pause-mode");
-      } else if (remoteState.phase === "break") {
-        document.body.classList.add("pause-mode");
-      }
-
-      if (!remoteState) {
-        phaseEl.textContent = "Prêt";
-        timerEl.textContent = formatTime(WORK_DURATION);
-        cyclesEl.textContent = `Cycle : 0 / ${TOTAL_WORK_CYCLES}`;
-        sessionNumberEl.textContent = "Station : -";
-        pauseBtn.textContent = "Pause";
-        return;
-      }
-
-      const isWork = remoteState.phase === "work";
-      const timeLeft = computeTimeLeft(remoteState);
-
-      if (remoteState.finished) {
-        phaseEl.textContent = "Terminé ! 🎉";
-        timerEl.textContent = "00:00";
+      if(next.cyclesDone>=5){
+        next.phase="finished";
+        next.finished=true;
       } else {
-        phaseEl.textContent = isWork ? "Travail (8 min)" : "Pause (2 min)";
-        if (remoteState.isPaused) {
-          phaseEl.textContent += " (en pause)";
-        }
-        timerEl.textContent = formatTime(timeLeft);
+        next.phase="break";
+        next.phaseDuration=BREAK_DURATION;
       }
-
-      cyclesEl.textContent =
-        `Cycle : ${remoteState.cyclesDone || 0} / ${TOTAL_WORK_CYCLES}`;
-
-      if (remoteState.phase === "work") {
-        sessionNumberEl.textContent =
-          `Station : ${remoteState.workSessionNumber || 1} / ${TOTAL_WORK_CYCLES}`;
-      } else if (remoteState.phase === "break") {
-        sessionNumberEl.textContent =
-          `Pause : ${remoteState.breakSessionNumber || 1} / ${TOTAL_WORK_CYCLES - 1}`;
-      } else {
-        sessionNumberEl.textContent = "Station : -";
-      }
-
-      pauseBtn.textContent = remoteState.isPaused ? "Reprendre" : "Pause";
+    } else if(s.phase==="break"){
+      next.breakSessionNumber = (s.breakSessionNumber||1)+1;
+      next.phase="work";
+      next.phaseDuration=WORK_DURATION;
     }
 
-    function maybePlayBeep(phaseName) {
-      if (lastPhaseName !== null && phaseName !== lastPhaseName) {
-        beep.currentTime = 0;
-        beep.play().catch(() => {});
-      }
-      lastPhaseName = phaseName;
+    next.phaseStart = firebase.firestore.FieldValue.serverTimestamp();
+    next.isPaused = false;
+    next.pausedRemaining = null;
+
+    tx.set(docRef,next,{merge:true});
+  });
+}
+
+/* Snapshot */
+docRef.onSnapshot(snap=>{
+  if(!snap.exists){
+    remoteState=null;
+    updateUI();
+    return;
+  }
+  remoteState = snap.data();
+  maybeBeep(remoteState.phase);
+  updateUI();
+  startLocalTicker();
+});
+
+/* BUTTONS */
+
+/* START */
+startBtn.addEventListener("click",async()=>{
+  if(!confirm("Démarrer le chronomètre ?")) return;
+
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(docRef);
+
+    if(!snap.exists){
+      tx.set(docRef,{
+        isStarted:true,
+        phase:"work",
+        phaseDuration:WORK_DURATION,
+        phaseStart:firebase.firestore.FieldValue.serverTimestamp(),
+        cyclesDone:0,
+        workSessionNumber:1,
+        breakSessionNumber:1,
+        finished:false,
+        isPaused:false,
+        pausedRemaining:null
+      });
+    } else {
+      const s=snap.data();
+      tx.set(docRef,{
+        isStarted:true,
+        isPaused:false,
+        pausedRemaining:null,
+        finished:false,
+        phase:s.phase || "work",
+        phaseDuration:(s.phase==="work"?WORK_DURATION:BREAK_DURATION),
+        phaseStart:firebase.firestore.FieldValue.serverTimestamp()
+      },{merge:true});
     }
+  });
+});
 
-    async function tryAdvancePhase() {
-      try {
-        await db.runTransaction(async (tx) => {
-          const d = await tx.get(docRef);
-          if (!d.exists) return;
-          const data = d.data();
+/* PAUSE */
+pauseBtn.addEventListener("click",async()=>{
+  if(!remoteState?.isStarted) return;
 
-          if (data.finished || data.isPaused) return;
-          if (!data.phaseStart) return;
+  const action = remoteState.isPaused ? "reprendre" : "mettre en pause";
+  if(!confirm("Voulez-vous vraiment "+action+" ?")) return;
 
-          const now = firebase.firestore.Timestamp.now();
-          const phaseDuration =
-            data.phaseDuration ||
-            (data.phase === "work" ? WORK_DURATION : BREAK_DURATION);
-          const elapsed = now.seconds - data.phaseStart.seconds;
-          if (elapsed < phaseDuration) return;
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(docRef);
+    if(!snap.exists) return;
+    const s=snap.data();
+    if(!s.isStarted || s.finished) return;
 
-          let next = { ...data };
-
-          if (data.phase === "work") {
-            next.cyclesDone = (data.cyclesDone || 0) + 1;
-            next.workSessionNumber = (data.workSessionNumber || 1) + 1;
-
-            if (next.cyclesDone >= TOTAL_WORK_CYCLES) {
-              next.phase = "finished";
-              next.finished = true;
-              next.phaseDuration = 0;
-              next.phaseStart =
-                firebase.firestore.FieldValue.serverTimestamp();
-              next.isPaused = false;
-              next.pausedRemaining = null;
-              tx.set(docRef, next, { merge: true });
-              return;
-            } else {
-              next.phase = "break";
-              next.phaseDuration = BREAK_DURATION;
-              next.phaseStart =
-                firebase.firestore.FieldValue.serverTimestamp();
-              next.isPaused = false;
-              next.pausedRemaining = null;
-              tx.set(docRef, next, { merge: true });
-              return;
-            }
-          } else if (data.phase === "break") {
-            next.breakSessionNumber = (data.breakSessionNumber || 1) + 1;
-            next.phase = "work";
-            next.phaseDuration = WORK_DURATION;
-            next.phaseStart =
-              firebase.firestore.FieldValue.serverTimestamp();
-            next.isPaused = false;
-            next.pausedRemaining = null;
-            tx.set(docRef, next, { merge: true });
-            return;
-          }
-        });
-      } catch (e) {
-        console.error("transaction error", e);
-      }
+    if(s.isPaused){
+      tx.update(docRef,{
+        isPaused:false,
+        pausedRemaining:null,
+        phaseStart:firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      const tl = computeTimeLeft(s);
+      tx.update(docRef,{
+        isPaused:true,
+        pausedRemaining:tl
+      });
     }
+  });
+});
 
-    function startLocalTicker() {
-      if (tickTimer) return;
-      tickTimer = setInterval(() => {
-        if (!remoteState) return;
-        updateUI();
-        if (!remoteState.finished && !remoteState.isPaused) {
-          const tl = computeTimeLeft(remoteState);
-          if (tl <= 0) {
-            tryAdvancePhase();
-          }
-        }
-      }, 1000);
+/* RESET — n'active plus isStarted */
+resetBtn.addEventListener("click",async()=>{
+  if(!confirm("Réinitialiser complètement ?")) return;
+
+  await docRef.set({
+    isStarted:false,
+    phase:"work",
+    phaseDuration:WORK_DURATION,
+    phaseStart:null,
+    cyclesDone:0,
+    workSessionNumber:1,
+    breakSessionNumber:1,
+    finished:false,
+    isPaused:false,
+    pausedRemaining:null
+  });
+});
+
+/* FULLSCREEN / MODE PROJECTEUR */
+function applyProjectorMode(){
+  if(isProjectorMode){
+    fullscreenBtn.textContent="Quitter le plein écran";
+    fullscreenBtn.classList.add("fullscreen-button-small");
+    document.body.classList.add("fullscreen-active");
+  } else {
+    fullscreenBtn.textContent="Plein écran";
+    fullscreenBtn.classList.remove("fullscreen-button-small");
+    document.body.classList.remove("fullscreen-active");
+  }
+}
+
+fullscreenBtn.addEventListener("click",()=>{
+  isProjectorMode=!isProjectorMode;
+  applyProjectorMode();
+
+  // tente vrai fullscreen si possible
+  if(isProjectorMode){
+    if(document.documentElement.requestFullscreen){
+      document.documentElement.requestFullscreen().catch(()=>{});
     }
-
-    docRef.onSnapshot(
-      (snap) => {
-        if (!snap.exists) {
-          remoteState = null;
-          updateUI();
-          return;
-        }
-        remoteState = snap.data();
-        maybePlayBeep(remoteState.phase);
-        updateUI();
-        if (remoteState) {
-          startLocalTicker();
-        }
-      },
-      (err) => {
-        console.error("snapshot error", err);
-      }
-    );
-
-    // --- Démarrer avec confirmation ---
-    startBtn.addEventListener("click", async () => {
-      const ok = confirm("Confirmer le démarrage ou la reprise du chronomètre ?");
-      if (!ok) return;
-
-      try {
-        await db.runTransaction(async (tx) => {
-          const d = await tx.get(docRef);
-          if (!d.exists) {
-            tx.set(docRef, {
-              phase: "work",
-              phaseDuration: WORK_DURATION,
-              phaseStart:
-                firebase.firestore.FieldValue.serverTimestamp(),
-              cyclesDone: 0,
-              workSessionNumber: 1,
-              breakSessionNumber: 1,
-              totalWorkCycles: TOTAL_WORK_CYCLES,
-              finished: false,
-              isPaused: false,
-              pausedRemaining: null
-            });
-          } else {
-            const data = d.data();
-            if (data.finished) {
-              tx.set(
-                docRef,
-                {
-                  phase: "work",
-                  phaseDuration: WORK_DURATION,
-                  phaseStart:
-                    firebase.firestore.FieldValue.serverTimestamp(),
-                  cyclesDone: 0,
-                  workSessionNumber: 1,
-                  breakSessionNumber: 1,
-                  totalWorkCycles: TOTAL_WORK_CYCLES,
-                  finished: false,
-                  isPaused: false,
-                  pausedRemaining: null
-                },
-                { merge: true }
-              );
-            } else if (data.isPaused) {
-              const remaining =
-                typeof data.pausedRemaining === "number"
-                  ? data.pausedRemaining
-                  : (data.phaseDuration ||
-                    (data.phase === "work"
-                      ? WORK_DURATION
-                      : BREAK_DURATION));
-              tx.update(docRef, {
-                isPaused: false,
-                pausedRemaining: null,
-                phaseDuration: remaining,
-                phaseStart:
-                  firebase.firestore.FieldValue.serverTimestamp()
-              });
-            } else {
-              const newDur =
-                data.phase === "work" ? WORK_DURATION : BREAK_DURATION;
-              tx.update(docRef, {
-                phaseDuration: newDur,
-                phaseStart:
-                  firebase.firestore.FieldValue.serverTimestamp(),
-                isPaused: false,
-                finished: false
-              });
-            }
-          }
-        });
-      } catch (e) {
-        console.error("start error", e);
-      }
-    });
-
-    // --- Pause/Reprendre avec confirmation ---
-    pauseBtn.addEventListener("click", async () => {
-      const label = remoteState && remoteState.isPaused ? "reprendre" : "mettre en pause";
-      const ok = confirm("Voulez-vous vraiment " + label + " le chronomètre ?");
-      if (!ok) return;
-
-      try {
-        await db.runTransaction(async (tx) => {
-          const d = await tx.get(docRef);
-          if (!d.exists) return;
-          const data = d.data();
-          if (data.finished) return;
-
-          if (data.isPaused) {
-            const remaining =
-              typeof data.pausedRemaining === "number"
-                ? data.pausedRemaining
-                : (data.phaseDuration ||
-                  (data.phase === "work"
-                    ? WORK_DURATION
-                    : BREAK_DURATION));
-            tx.update(docRef, {
-              isPaused: false,
-              pausedRemaining: null,
-              phaseDuration: remaining,
-              phaseStart:
-                firebase.firestore.FieldValue.serverTimestamp()
-            });
-          } else {
-            const now = firebase.firestore.Timestamp.now();
-            const phaseDuration =
-              data.phaseDuration ||
-              (data.phase === "work" ? WORK_DURATION : BREAK_DURATION);
-            let elapsed = 0;
-            if (data.phaseStart) {
-              elapsed = now.seconds - data.phaseStart.seconds;
-            }
-            let remaining = phaseDuration - elapsed;
-            if (remaining < 0) remaining = 0;
-
-            tx.update(docRef, {
-              isPaused: true,
-              pausedRemaining: remaining
-            });
-          }
-        });
-      } catch (e) {
-        console.error("pause error", e);
-      }
-    });
-
-    // --- Reset avec confirmation ---
-    resetBtn.addEventListener("click", async () => {
-      const ok = confirm("Réinitialiser complètement la station et recommencer depuis le début ?");
-      if (!ok) return;
-
-      try {
-        await docRef.set({
-          phase: "work",
-          phaseDuration: WORK_DURATION,
-          phaseStart:
-            firebase.firestore.FieldValue.serverTimestamp(),
-          cyclesDone: 0,
-          workSessionNumber: 1,
-          breakSessionNumber: 1,
-          totalWorkCycles: TOTAL_WORK_CYCLES,
-          finished: false,
-          isPaused: false,
-          pausedRemaining: null
-        });
-      } catch (e) {
-        console.error("reset error", e);
-      }
-    });
-
-    // --- Mode plein écran / projecteur ---
-    function applyProjectorMode() {
-      if (isProjectorMode) {
-        fullscreenBtn.textContent = "Quitter le plein écran";
-        fullscreenBtn.classList.add("fullscreen-button-small");
-        document.body.classList.add("fullscreen-active");
-      } else {
-        fullscreenBtn.textContent = "Plein écran";
-        fullscreenBtn.classList.remove("fullscreen-button-small");
-        document.body.classList.remove("fullscreen-active");
-      }
+  } else {
+    if(document.exitFullscreen){
+      document.exitFullscreen().catch(()=>{});
     }
+  }
+});
+</script>
 
-    fullscreenBtn.addEventListener("click", () => {
-      // On bascule le mode visuel
-      isProjectorMode = !isProjectorMode;
-      applyProjectorMode();
-
-      // On tente le vrai plein écran si disponible (sinon ce n'est pas grave)
-      if (isProjectorMode) {
-        if (document.documentElement.requestFullscreen) {
-          document.documentElement.requestFullscreen().catch(()=>{});
-        }
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen().catch(()=>{});
-        }
-      }
-    });
-
-    console.log("Chronomètre ECOS initialisé. Session :", sessionId);
-  </script>
 </body>
 </html>
