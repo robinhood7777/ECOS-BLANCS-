@@ -11,12 +11,22 @@
       --primary-dark:#0056c7;
       --bg:#f0f0f0;
       --card:#ffffff;
+
+      /* Couleurs spécifiques pause */
+      --pause-bg:#fdf3e6;    /* fond léger, chaud mais doux */
+      --pause-card:#ffe1c2;  /* carte légèrement orangée pastel */
     }
     html,body{
       height:100%;
       margin:0;
       background:var(--bg);
       font-family:Arial,Helvetica,sans-serif;
+    }
+    body.pause-mode{
+      background:var(--pause-bg);
+    }
+    body.pause-mode .card{
+      background:var(--pause-card);
     }
     .wrap{
       min-height:100%;
@@ -60,6 +70,14 @@
       justify-content:center;
       margin-top:1rem;
     }
+    .controls-main{
+      margin-top:1.5rem;
+    }
+    .controls-secondary{
+      margin-top:2rem;
+      border-top:1px solid #ddd;
+      padding-top:1rem;
+    }
     button{
       padding:0.9rem 1.2rem;
       border-radius:10px;
@@ -68,8 +86,8 @@
       color:#fff;
       font-size:clamp(0.9rem,2.2vw,1rem);
       cursor:pointer;
-      width:140px;
-      max-width:40vw;
+      width:160px;
+      max-width:45vw;
     }
     button:active{
       transform:scale(0.98);
@@ -98,10 +116,16 @@
       <div id="phase">Prêt</div>
       <div id="timer">08:00</div>
       <div id="cycles">Cycle : 0 / 5</div>
-      <div id="sessionNumber">Session : -</div>
+      <div id="sessionNumber">Station : -</div>
 
-      <div class="controls">
+      <!-- Bouton principal, bien séparé -->
+      <div class="controls controls-main">
         <button id="start">Démarrer</button>
+        <button id="fullscreen" class="secondary">Plein écran</button>
+      </div>
+
+      <!-- Boutons sensibles plus bas, séparés -->
+      <div class="controls controls-secondary">
         <button id="pause" class="secondary">Pause</button>
         <button id="reset" class="secondary">Réinitialiser</button>
       </div>
@@ -121,7 +145,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
   <script>
-    // --- CONFIG FIREBASE (ta config) ---
+    // --- CONFIG FIREBASE ---
     const firebaseConfig = {
       apiKey: "AIzaSyAb0JrnpRAXYM6op6W7bmCwhBxScyOHYyM",
       authDomain: "ecos-blancs.firebaseapp.com",
@@ -131,12 +155,10 @@
       appId: "1:88962953870:web:c37b8c705c89ed68bd8fdf"
     };
 
-    // Durées (en secondes)
     const WORK_DURATION = 8 * 60;
     const BREAK_DURATION = 2 * 60;
     const TOTAL_WORK_CYCLES = 5;
 
-    // --- Init Firebase / Firestore ---
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
@@ -149,7 +171,6 @@
     document.getElementById("sessionIdSpan").textContent = sessionId;
     const docRef = db.collection("sessions").doc(sessionId);
 
-    // DOM
     const phaseEl = document.getElementById("phase");
     const timerEl = document.getElementById("timer");
     const cyclesEl = document.getElementById("cycles");
@@ -157,9 +178,9 @@
     const startBtn = document.getElementById("start");
     const pauseBtn = document.getElementById("pause");
     const resetBtn = document.getElementById("reset");
+    const fullscreenBtn = document.getElementById("fullscreen");
     const beep = document.getElementById("beep");
 
-    // État local
     let remoteState = null;
     let lastPhaseName = null;
     let tickTimer = null;
@@ -174,7 +195,6 @@
     function computeTimeLeft(state) {
       if (!state) return WORK_DURATION;
 
-      // Si en pause, utiliser le temps figé
       if (state.isPaused && typeof state.pausedRemaining === "number") {
         return state.pausedRemaining;
       }
@@ -192,11 +212,18 @@
     }
 
     function updateUI() {
+      // Couleur pause vs station
+      if (!remoteState || remoteState.phase === "work" || remoteState.phase === "finished") {
+        document.body.classList.remove("pause-mode");
+      } else if (remoteState.phase === "break") {
+        document.body.classList.add("pause-mode");
+      }
+
       if (!remoteState) {
         phaseEl.textContent = "Prêt";
         timerEl.textContent = formatTime(WORK_DURATION);
         cyclesEl.textContent = `Cycle : 0 / ${TOTAL_WORK_CYCLES}`;
-        sessionNumberEl.textContent = "Session : -";
+        sessionNumberEl.textContent = "Station : -";
         pauseBtn.textContent = "Pause";
         return;
       }
@@ -218,14 +245,15 @@
       cyclesEl.textContent =
         `Cycle : ${remoteState.cyclesDone || 0} / ${TOTAL_WORK_CYCLES}`;
 
+      // Station / Pause
       if (remoteState.phase === "work") {
         sessionNumberEl.textContent =
-          `Session de travail : ${remoteState.workSessionNumber || 1} / ${TOTAL_WORK_CYCLES}`;
+          `Station : ${remoteState.workSessionNumber || 1} / ${TOTAL_WORK_CYCLES}`;
       } else if (remoteState.phase === "break") {
         sessionNumberEl.textContent =
-          `Session de pause : ${remoteState.breakSessionNumber || 1} / ${TOTAL_WORK_CYCLES - 1}`;
+          `Pause : ${remoteState.breakSessionNumber || 1} / ${TOTAL_WORK_CYCLES - 1}`;
       } else {
-        sessionNumberEl.textContent = "Session : -";
+        sessionNumberEl.textContent = "Station : -";
       }
 
       pauseBtn.textContent = remoteState.isPaused ? "Reprendre" : "Pause";
@@ -313,7 +341,6 @@
       }, 1000);
     }
 
-    // Écoute Firestore
     docRef.onSnapshot(
       (snap) => {
         if (!snap.exists) {
@@ -333,8 +360,11 @@
       }
     );
 
-    // Bouton Démarrer
+    // --- Bouton Démarrer avec confirmation ---
     startBtn.addEventListener("click", async () => {
+      const ok = confirm("Confirmer le démarrage ou la reprise du chronomètre ?");
+      if (!ok) return;
+
       try {
         await db.runTransaction(async (tx) => {
           const d = await tx.get(docRef);
@@ -405,8 +435,12 @@
       }
     });
 
-    // Bouton Pause (pause/reprise globale)
+    // --- Bouton Pause/Reprendre avec confirmation ---
     pauseBtn.addEventListener("click", async () => {
+      const label = remoteState && remoteState.isPaused ? "reprendre" : "mettre en pause";
+      const ok = confirm("Voulez-vous vraiment " + label + " le chronomètre ?");
+      if (!ok) return;
+
       try {
         await db.runTransaction(async (tx) => {
           const d = await tx.get(docRef);
@@ -452,8 +486,11 @@
       }
     });
 
-    // Bouton Reset
+    // --- Bouton Reset avec confirmation ---
     resetBtn.addEventListener("click", async () => {
+      const ok = confirm("Réinitialiser complètement la station et recommencer depuis le début ?");
+      if (!ok) return;
+
       try {
         await docRef.set({
           phase: "work",
@@ -473,8 +510,30 @@
       }
     });
 
+    // --- Mode plein écran ---
+    function updateFullscreenButtonLabel() {
+      if (document.fullscreenElement) {
+        fullscreenBtn.textContent = "Quitter le plein écran";
+      } else {
+        fullscreenBtn.textContent = "Plein écran";
+      }
+    }
+
+    fullscreenBtn.addEventListener("click", () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.error("Erreur plein écran:", err);
+        });
+      } else {
+        document.exitFullscreen().catch(err => {
+          console.error("Erreur sortie plein écran:", err);
+        });
+      }
+    });
+
+    document.addEventListener("fullscreenchange", updateFullscreenButtonLabel);
+
     console.log("Chronomètre ECOS initialisé. Session :", sessionId);
-    console.log("Ouvre la même URL (avec le même ?sid=…) sur d'autres appareils pour synchroniser.");
   </script>
 </body>
 </html>
