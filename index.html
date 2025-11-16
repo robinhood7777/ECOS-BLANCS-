@@ -24,7 +24,7 @@
       font-family:Arial,Helvetica,sans-serif;
     }
 
-    /* Mode pause : couleur différente, mais station inchangée */
+    /* Mode pause : couleur différente, station inchangée */
     body.pause-mode{
       background:var(--pause-bg);
     }
@@ -124,7 +124,7 @@
       .card{padding:1rem}
     }
 
-    /* --- MODE PLEIN ÉCRAN --- */
+    /* --- MODE PROJECTEUR / PLEIN ÉCRAN VISUEL --- */
 
     /* Cacher toutes les commandes sauf le bouton plein écran */
     .fullscreen-active .controls-main button:not(#fullscreen),
@@ -132,7 +132,7 @@
       display: none !important;
     }
 
-    /* Bouton plein écran réduit et en bas de la page en mode plein écran */
+    /* Bouton plein écran réduit et en bas de la page en mode projecteur */
     #fullscreen.fullscreen-button-small {
       position: fixed;
       bottom: 10px;
@@ -226,6 +226,7 @@
     let remoteState = null;
     let lastPhaseName = null;
     let tickTimer = null;
+    let isProjectorMode = false; // notre "mode plein écran visuel"
 
     function formatTime(seconds) {
       if (seconds < 0) seconds = 0;
@@ -287,7 +288,6 @@
       cyclesEl.textContent =
         `Cycle : ${remoteState.cyclesDone || 0} / ${TOTAL_WORK_CYCLES}`;
 
-      // Station / Pause
       if (remoteState.phase === "work") {
         sessionNumberEl.textContent =
           `Station : ${remoteState.workSessionNumber || 1} / ${TOTAL_WORK_CYCLES}`;
@@ -552,11 +552,9 @@
       }
     });
 
-    // --- Mode plein écran ---
-    function updateFullscreenButtonLabel() {
-      const isFs = !!document.fullscreenElement;
-
-      if (isFs) {
+    // --- Mode plein écran / projecteur ---
+    function applyProjectorMode() {
+      if (isProjectorMode) {
         fullscreenBtn.textContent = "Quitter le plein écran";
         fullscreenBtn.classList.add("fullscreen-button-small");
         document.body.classList.add("fullscreen-active");
@@ -568,18 +566,21 @@
     }
 
     fullscreenBtn.addEventListener("click", () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => {
-          console.error("Erreur plein écran:", err);
-        });
+      // On bascule le mode visuel
+      isProjectorMode = !isProjectorMode;
+      applyProjectorMode();
+
+      // On tente le vrai plein écran si disponible (sinon ce n'est pas grave)
+      if (isProjectorMode) {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(()=>{});
+        }
       } else {
-        document.exitFullscreen().catch(err => {
-          console.error("Erreur sortie plein écran:", err);
-        });
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(()=>{});
+        }
       }
     });
-
-    document.addEventListener("fullscreenchange", updateFullscreenButtonLabel);
 
     console.log("Chronomètre ECOS initialisé. Session :", sessionId);
   </script>
